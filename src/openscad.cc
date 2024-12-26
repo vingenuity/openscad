@@ -256,6 +256,7 @@ struct CommandLine
   const fs::path& original_path;
   const std::string& parameterFile;
   const std::string& setName;
+  const bool allSets;
   const ViewOptions& viewOptions;
   const Camera& camera;
   const boost::optional<FileFormat> export_format;
@@ -583,12 +584,12 @@ int cmdline(const CommandLine& cmd)
 
   // add parameter to AST
   CommentParser::collectParameters(text.c_str(), root_file);
-  if (!cmd.parameterFile.empty() && !cmd.setName.empty()) {
+  if (!cmd.parameterFile.empty() && (!cmd.setName.empty() || cmd.allSets)) {
     ParameterObjects parameters = ParameterObjects::fromSourceFile(root_file);
     ParameterSets sets;
     sets.readFile(cmd.parameterFile);
     for (const auto& set : sets) {
-      if (set.name() == cmd.setName) {
+      if ((set.name() == cmd.setName) || cmd.allSets) {
         parameters.importValues(set);
         parameters.apply(root_file);
         break;
@@ -736,6 +737,7 @@ int main(int argc, char **argv)
     ("D,D", po::value<std::vector<std::string>>(), "var=val -pre-define variables")
     ("p,p", po::value<std::string>(), "customizer parameter file")
     ("P,P", po::value<std::string>(), "customizer parameter set")
+    ("A,A", "all customizer parameter sets")
 #ifdef ENABLE_EXPERIMENTAL
   ("enable", po::value<std::vector<std::string>>(), ("enable experimental features (specify 'all' for enabling all available features): " +
                                            str_join(boost::make_iterator_range(Feature::begin(), Feature::end()), " | ",
@@ -930,6 +932,11 @@ int main(int argc, char **argv)
     parameterSet = vm["P"].as<std::string>().c_str();
   }
 
+  bool allParameterSets = false;
+  if (vm.count("A")) {
+    allParameterSets = true;
+  }
+
   std::vector<std::string> inputFiles;
   if (vm.count("input-file")) {
     inputFiles = vm["input-file"].as<std::vector<std::string>>();
@@ -995,6 +1002,7 @@ int main(int argc, char **argv)
             original_path,
             parameterFile,
             parameterSet,
+            allParameterSets,
             viewOptions,
             camera,
             export_format,
